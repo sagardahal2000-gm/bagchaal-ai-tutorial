@@ -112,14 +112,31 @@ describe('iterative deepening', () => {
 });
 
 describe('repetition draw', () => {
-  it('scores a position as a draw when it already occurred in the supplied history', () => {
-    const state = initialState();
-    const priorHash = zobristHash(state);
+  it('scores a move into a previously-seen position as a draw', () => {
+    // Placement phase, Tigers to move. Tiger on 0 has exactly two legal
+    // moves: jump 0-1-2 (goat on 1, landing 2 empty), or slide 0->5.
+    // The other jumps are blocked — 0-5-10 has no goat on 5, and
+    // 0-6-12 has a goat on 6 but the landing point 12 is occupied.
+    const makePosition = () =>
+      position([0], [1, 6, 7, 11, 12], { turn: TIGER });
 
-    const result = search(state, { maxDepth: 3, history: [priorHash] });
+    const baseline = search(makePosition(), { maxDepth: 2 });
+    // The capture is worth a full goat, so Tigers stand clearly better.
+    expect(baseline.score).toBeGreaterThan(0);
 
-    expect(result.score).toBe(0);
-    expect(result.bestMove).toBeNull();
+    // Now declare the post-jump position to have already occurred earlier
+    // in the game. The capture is still legal, but it now leads to a
+    // repetition, so the search must value that line at 0 rather than
+    // at the value of a goat.
+    const afterJump = makePosition();
+    applyMove(afterJump, { kind: 'jump', from: 0, over: 1, to: 2 });
+
+    const withHistory = search(makePosition(), {
+      maxDepth: 2,
+      history: [zobristHash(afterJump)],
+    });
+
+    expect(withHistory.score).toBeLessThan(baseline.score);
   });
 });
 
