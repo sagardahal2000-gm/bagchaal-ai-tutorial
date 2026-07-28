@@ -185,7 +185,7 @@ export function moveDelta(state: GameState, move: Move): ZobristKey {
   return { a: a >>> 0, b: b >>> 0 };
 }
 
-function applyDelta(hash: ZobristKey, delta: ZobristKey): ZobristKey {
+export function applyDelta(hash: ZobristKey, delta: ZobristKey): ZobristKey {
   return { a: (hash.a ^ delta.a) >>> 0, b: (hash.b ^ delta.b) >>> 0 };
 }
 
