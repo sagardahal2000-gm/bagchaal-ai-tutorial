@@ -189,6 +189,10 @@ export default function MatchScreen() {
           Puzzles →
         </Link>
 
+        <Link href="/tutorial" style={{ textAlign: 'center', color: '#2E7D62', fontSize: 15 }}>
+          Learn the rules →
+        </Link>
+
         <View style={styles.suggestRow}>
           <Pressable
             onPress={suggest}

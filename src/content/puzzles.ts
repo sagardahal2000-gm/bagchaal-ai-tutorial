@@ -16,7 +16,7 @@ import {
  * to be reachable from the opening by legal play.
  * ------------------------------------------------------------------ */
 
-function position(
+export function position(
   tigers: readonly number[],
   goats: readonly number[],
   opts: { turn: Side; goatsPlaced?: number; goatsCaptured?: number },
