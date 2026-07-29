@@ -28,6 +28,7 @@ import {
   selectPuzzle,
 } from '../engine/elo';
 import { solvePuzzle } from '../engine/puzzle';
+import { clearProgress, loadProgress, mergeRatings, saveProgress } from '../storage/progress';
 
 type Phase = 'solving' | 'solved' | 'failed';
 
@@ -43,6 +44,10 @@ export default function PuzzleScreen() {
   const [ratings, setRatings] = useState<RatedPuzzle[]>(seedRatings);
   const [solvedIds, setSolvedIds] = useState<ReadonlySet<string>>(() => new Set());
 
+  /** Until stored progress has been read, saving would overwrite it with
+   *  defaults, and selecting a puzzle would use the wrong rating. */
+  const [hydrated, setHydrated] = useState(false);
+
   const [current, setCurrent] = useState<AuthoredPuzzle | null>(null);
   const [state, setState] = useState<GameState | null>(null);
   const [pliesUsed, setPliesUsed] = useState(0);
@@ -53,6 +58,31 @@ export default function PuzzleScreen() {
   const [hint, setHint] = useState<Move | null>(null);
   const [usedHint, setUsedHint] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  /* ---------------------------------------------------------------- *
+   * Persistence
+   * ---------------------------------------------------------------- */
+
+  useEffect(() => {
+    let cancelled = false;
+    loadProgress().then((stored) => {
+      if (cancelled) return;
+      if (stored) {
+        setUser(stored.user);
+        setRatings(mergeRatings(seedRatings(), stored.ratings));
+        setSolvedIds(new Set(stored.solvedIds));
+      }
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveProgress({ user, ratings, solvedIds: [...solvedIds] });
+  }, [hydrated, ratings, solvedIds, user]);
 
   /* ---------------------------------------------------------------- *
    * Puzzle selection
@@ -75,8 +105,8 @@ export default function PuzzleScreen() {
   }, [ratings, solvedIds, user]);
 
   useEffect(() => {
-    if (!current) loadNext();
-  }, [current, loadNext]);
+    if (hydrated && !current) loadNext();
+  }, [current, hydrated, loadNext]);
 
   /* ---------------------------------------------------------------- *
    * Derived board data
@@ -248,7 +278,28 @@ export default function PuzzleScreen() {
     setFeedback(null);
   }, [current]);
 
+  /** Wipes stored progress and starts over — useful for demonstrating
+   *  adaptive selection from a fresh rating. */
+  const resetProgress = useCallback(async () => {
+    await clearProgress();
+    setUser(newUser());
+    setRatings(seedRatings());
+    setSolvedIds(new Set());
+    setCurrent(null);
+  }, []);
+
   /* ---------------------------------------------------------------- */
+
+  if (!hydrated) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.container}>
+          <Text style={styles.title}>Puzzles</Text>
+          <Text style={styles.muted}>Loading your progress…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!current || !state) {
     return (
@@ -267,7 +318,12 @@ export default function PuzzleScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.container}>
-        <Text style={styles.title}>Puzzles</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Puzzles</Text>
+          <Pressable onPress={resetProgress} hitSlop={8}>
+            <Text style={styles.reset}>Reset progress</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.statusRow}>
           <View style={styles.stat}>
@@ -354,7 +410,9 @@ const PALETTE = {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: PALETTE.background },
   container: { flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 26, fontWeight: '700', color: PALETTE.ink },
+  reset: { fontSize: 13, color: PALETTE.muted, textDecorationLine: 'underline' },
   muted: { fontSize: 14, color: PALETTE.muted },
 
   statusRow: {
