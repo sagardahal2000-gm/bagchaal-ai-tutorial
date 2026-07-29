@@ -233,7 +233,7 @@ export function useGame({
         // Everything before the current position — SearchOptions.history
         // must not include `state` itself, or the root scores as a draw.
         const history = positions.current.slice(0, -1);
-        const move = chooseMove(state, history);
+        const move = chooseMove(state, history) ?? generateMoves(state)[0] ?? null;
         if (!cancelled && alive.current) {
           if (move) commit(state, move);
           setThinking(false);

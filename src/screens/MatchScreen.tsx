@@ -17,7 +17,7 @@ import { ZobristKey, search } from '../engine/search';
 import { useGame } from '../hooks/useGame';
 
 /** Bounded so the synchronous search cannot stall the UI thread for long. */
-const AI_TIME_LIMIT_MS = 800;
+const AI_TIME_LIMIT_MS = 400;
 const AI_MAX_DEPTH = 6;
 
 
@@ -50,14 +50,17 @@ export default function MatchScreen() {
    * the question entirely.
    */
   const chooseMove = useCallback(
-    (state: GameState, history: ZobristKey[]) =>
-      search(state, {
-        timeLimitMs: AI_TIME_LIMIT_MS,
-        maxDepth: AI_MAX_DEPTH,
-        history,
-      }).bestMove,
-    [],
-  );
+  (state: GameState, history: ZobristKey[]) => {
+    const result = search(state, {
+      timeLimitMs: AI_TIME_LIMIT_MS,
+      maxDepth: AI_MAX_DEPTH,
+      history,
+    });
+    //console.log(`depth ${result.depth} · ${result.nodes} nodes · ${result.timeMs}ms`);
+    return result.bestMove;
+  },
+  [],
+);
 
   const game = useGame({ humanSide, chooseMove });
 
@@ -123,7 +126,7 @@ export default function MatchScreen() {
             selected={game.selected}
             /* Every empty point is legal during placement; showing all
                20-odd target dots is noise rather than guidance. */
-            legalTargets={placement ? [] : game.legalTargets}
+           legalTargets={placement && game.state.turn === GOAT ? [] : game.legalTargets}
             lastMove={game.lastMove}
             capturing={game.capturing}
             disabled={!game.isHumanTurn}

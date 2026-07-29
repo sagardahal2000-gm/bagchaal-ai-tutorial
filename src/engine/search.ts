@@ -286,7 +286,7 @@ function negamax(
   ctx: SearchContext,
 ): number {
   ctx.stats.nodes++;
-  if (ctx.stats.nodes % 2048 === 0 && Date.now() > ctx.deadline) {
+ if (ctx.stats.nodes % 256 === 0 && Date.now() > ctx.deadline) {
     throw new SearchTimeout();
   }
 
@@ -296,7 +296,7 @@ function negamax(
   // history supplied to search()) is treated as a draw. See file header,
   // note 4, for why one repeat is enough here even though a claimable
   // draw in an actual game needs three.
-  if ((ctx.pathCounts.get(key) ?? 0) > 0) return 0;
+  if (ply > 0 && (ctx.pathCounts.get(key) ?? 0) > 0) return 0;
 
   const moves = generateMoves(state);
   const result = outcome(state, moves);

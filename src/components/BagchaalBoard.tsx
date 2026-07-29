@@ -61,7 +61,7 @@ const COLOR = {
   tigerEdge: '#5E2A0C',
   selected: '#2E7D62',
   target: '#2E7D62',
-  lastMove: '#C9A227',
+  lastMove: '#38a07c',
   capture: '#C4402A',
 } as const;
 
@@ -150,13 +150,6 @@ function BagchaalBoardImpl({
               strokeDasharray="1.5 1.5"
             />
           ) : null}
-          <Circle
-            cx={xOf(lastMove.to)}
-            cy={yOf(lastMove.to)}
-            r={5.5}
-            fill={COLOR.lastMove}
-            fillOpacity={0.18}
-          />
         </G>
       ) : null}
 
@@ -195,6 +188,17 @@ function BagchaalBoardImpl({
           );
         })}
       </G>
+
+      {lastMove ? (
+        <Circle
+          cx={xOf(lastMove.to)}
+          cy={yOf(lastMove.to)}
+          r={5}
+          fill="none"
+          stroke={COLOR.lastMove}
+          strokeWidth={1.2}
+        />
+      ) : null}
 
       {/* Selection ring */}
       {selected !== null ? (
@@ -235,7 +239,7 @@ function BagchaalBoardImpl({
               r={9}
               fill="#000000"
               fillOpacity={0}
-              onPress={() => onPointPress(i)}
+              onPressIn={() => onPointPress(i)}
             />
           ))}
         </G>
