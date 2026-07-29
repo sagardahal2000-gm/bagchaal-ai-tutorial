@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -11,7 +11,7 @@ import { Link } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import BagchaalBoard from '../components/BagchaalBoard';
 import { GOAT, GOATS_TO_LOSE, TIGER, TOTAL_GOATS } from '../engine/board';
-import { GameState, Side, inPlacementPhase } from '../engine/moves';
+import { GameState, Move, Side, inPlacementPhase } from '../engine/moves';
 import { Outcome } from '../engine/rules';
 import { ZobristKey, search } from '../engine/search';
 import { useGame } from '../hooks/useGame';
@@ -65,6 +65,24 @@ export default function MatchScreen() {
 );
 
   const game = useGame({ humanSide, chooseMove });
+
+  const [suggestion, setSuggestion] = useState<Move | null>(null);
+
+  // The suggestion describes one position only, so it dies with it.
+  useEffect(() => setSuggestion(null), [game.state]);
+
+  const suggest = useCallback(() => {
+    if (!game.isHumanTurn) return;
+    const result = search(game.state, {
+      timeLimitMs: AI_TIME_LIMIT_MS,
+      maxDepth: AI_MAX_DEPTH,
+      history: game.getHistory(),
+    });
+    setSuggestion(result.bestMove);
+  }, [game]);
+
+  const suggestionOrigin =
+    suggestion && suggestion.kind !== 'place' ? suggestion.from : null;
 
   const switchSide = useCallback(
     (side: Side) => {
@@ -125,10 +143,16 @@ export default function MatchScreen() {
         <View style={styles.boardWrap}>
           <BagchaalBoard
             board={game.state.board}
-            selected={game.selected}
-            /* Every empty point is legal during placement; showing all
-               20-odd target dots is noise rather than guidance. */
-           legalTargets={placement && game.state.turn === GOAT ? [] : game.legalTargets}
+            selected={suggestionOrigin ?? game.selected}
+            //During the placement phase, the legal targets are all empty points. It is not practical to pass them all to the board, 
+            // so the board is told to render no targets. The board will still accept taps on empty points and pass them to onPointPress.
+            legalTargets={
+              suggestion
+                ? [suggestion.to]
+                : placement && game.state.turn === GOAT
+                  ? []
+                  : game.legalTargets
+            }
             lastMove={game.lastMove}
             capturing={game.capturing}
             disabled={!game.isHumanTurn}
@@ -164,6 +188,18 @@ export default function MatchScreen() {
         <Link href="/puzzles" style={{ textAlign: 'center', color: '#2E7D62', fontSize: 15 }}>
           Puzzles →
         </Link>
+
+        <View style={styles.suggestRow}>
+          <Pressable
+            onPress={suggest}
+            disabled={!game.isHumanTurn}
+            style={[styles.action, !game.isHumanTurn && styles.actionDisabled]}
+          >
+            <Text style={styles.actionLabel}>
+              {suggestion ? 'Suggestion shown' : 'Suggest a move'}
+            </Text>
+          </Pressable>
+        </View>
 
         <View style={[styles.actions, { marginBottom: 16 + insets.bottom }]}>
           <Pressable
@@ -241,4 +277,5 @@ const styles = StyleSheet.create({
   },
   actionDisabled: { opacity: 0.4 },
   actionLabel: { fontSize: 15, fontWeight: '600', color: PALETTE.ink },
+  suggestRow: { flexDirection: 'row' },
 });

@@ -65,6 +65,8 @@ export interface UseGameResult {
   capturing: number | null;
   thinking: boolean;
   isHumanTurn: boolean;
+  /** Positions before the current one, for passing to search(). */
+  getHistory: () => ZobristKey[];
   /** How many times the current position has now occurred. */
   repetitionCount: number;
   onPointPress: (point: number) => void;
@@ -250,6 +252,10 @@ export function useGame({
 
   /* ---------------------------------------------------------------- */
 
+   // A getter rather than an array: refs don't trigger renders, and a
+  // fresh slice each render would churn every dependency list it lands in.
+  const getHistory = useCallback(() => positions.current.slice(0, -1), []);
+
   const undo = useCallback(() => {
     // Step back past the AI reply to the human's own previous turn.
     let previous = snapshots.current.pop();
@@ -292,5 +298,6 @@ export function useGame({
     onPointPress,
     undo,
     reset,
+    getHistory,
   };
 }
