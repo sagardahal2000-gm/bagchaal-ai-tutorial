@@ -2,6 +2,7 @@ import { GOAT, POINTS, TIGER, idx } from '../engine/board';
 import { GameState, Move, Side } from '../engine/moves';
 import {
   Puzzle,
+  allTigersTrapped,
   capturesAtLeast,
   noGoatEnPrise,
   solvePuzzle,
@@ -33,6 +34,15 @@ export function position(
   };
 }
 
+/** Every point except those listed — for crowded sliding-phase positions,
+ *  where listing twenty goats by hand invites a transcription error. */
+export function everyPointExcept(excluded: readonly number[]): number[] {
+  const skip = new Set(excluded);
+  const points: number[] = [];
+  for (let point = 0; point < POINTS; point++) if (!skip.has(point)) points.push(point);
+  return points;
+}
+
 /** The four tigers in their opening corners. */
 const CORNERS = [idx(0, 0), idx(0, 4), idx(4, 0), idx(4, 4)] as const;
 
@@ -58,6 +68,21 @@ export const PUZZLES: AuthoredPuzzle[] = [
     expectUnique: true,
   },
   {
+    id: 'capture-diagonal-1',
+    prompt: 'Tigers to play. The diagonal is open — take the goat.',
+    position: position(
+      [idx(2, 2), idx(0, 4), idx(4, 0), idx(4, 4)],
+      [idx(1, 1)],
+      { turn: TIGER },
+    ),
+    solver: TIGER,
+    goal: capturesAtLeast(1),
+    mode: 'achieve',
+    maxPlies: 1,
+    rating: 850,
+    expectUnique: true,
+  },
+  {
     id: 'block-the-jump-1',
     prompt: 'Goats to play. A goat is attacked — place one so that no goat can be taken.',
     position: position(CORNERS, [idx(0, 1), idx(2, 2)], { turn: GOAT }),
@@ -66,6 +91,21 @@ export const PUZZLES: AuthoredPuzzle[] = [
     mode: 'achieve',
     maxPlies: 1,
     rating: 900,
+    expectUnique: true,
+  },
+  {
+    id: 'block-the-diagonal-1',
+    prompt: 'Goats to play. The threat comes along a diagonal this time. Stop it.',
+    position: position(
+      [idx(2, 2), idx(0, 4), idx(4, 0), idx(4, 4)],
+      [idx(1, 1), idx(4, 2)],
+      { turn: GOAT },
+    ),
+    solver: GOAT,
+    goal: noGoatEnPrise,
+    mode: 'achieve',
+    maxPlies: 1,
+    rating: 950,
     expectUnique: true,
   },
   {
@@ -81,6 +121,40 @@ export const PUZZLES: AuthoredPuzzle[] = [
     mode: 'achieve',
     maxPlies: 1,
     rating: 1000,
+    expectUnique: true,
+  },
+  {
+    id: 'trap-edge-tiger-1',
+    // This tiger sits on a point with no diagonals, so it has fewer escapes
+    // than a corner tiger — but one of them is a jump, which is easy to miss.
+    prompt: 'Goats to play. This tiger has one escape left. Close it.',
+    position: position(
+      [idx(0, 1), idx(0, 4), idx(4, 0), idx(4, 4)],
+      [idx(0, 0), idx(0, 2), idx(1, 1), idx(2, 1)],
+      { turn: GOAT },
+    ),
+    solver: GOAT,
+    goal: trapsAtLeast(1),
+    mode: 'achieve',
+    maxPlies: 1,
+    rating: 1100,
+    expectUnique: true,
+  },
+  {
+    id: 'close-the-net-1',
+    // Sliding phase: all twenty goats are down, one point is empty, and four
+    // of the five goats beside it would open a hole behind them.
+    prompt: 'Goats to play. Slide one goat and every tiger is finished.',
+    position: position(
+      CORNERS,
+      everyPointExcept([...CORNERS, idx(0, 2)]),
+      { turn: GOAT, goatsPlaced: 20 },
+    ),
+    solver: GOAT,
+    goal: allTigersTrapped,
+    mode: 'achieve',
+    maxPlies: 1,
+    rating: 1200,
     expectUnique: true,
   },
 ];

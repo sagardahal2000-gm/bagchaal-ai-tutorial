@@ -6,9 +6,8 @@ import {
   Text,
   View,
 } from 'react-native';
-
-import { Link } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import BagchaalBoard from '../components/BagchaalBoard';
 import { GOAT, GOATS_TO_LOSE, TIGER, TOTAL_GOATS } from '../engine/board';
 import { GameState, Move, Side, inPlacementPhase } from '../engine/moves';
@@ -16,12 +15,9 @@ import { Outcome } from '../engine/rules';
 import { ZobristKey, search } from '../engine/search';
 import { useGame } from '../hooks/useGame';
 
-
-
 /** Bounded so the synchronous search cannot stall the UI thread for long. */
 const AI_TIME_LIMIT_MS = 400;
 const AI_MAX_DEPTH = 6;
-
 
 function resultText(status: Outcome, state: GameState): string | null {
   switch (status) {
@@ -39,36 +35,29 @@ function resultText(status: Outcome, state: GameState): string | null {
 }
 
 export default function MatchScreen() {
+  const insets = useSafeAreaInsets();
   const [humanSide, setHumanSide] = useState<Side>(GOAT);
 
   /**
    * Stable identity matters: the hook's AI effect depends on chooseMove,
    * so an inline arrow would give it a new identity every render and
    * re-fire the search.
-   *
-   * The state is cloned before it goes in. negamax applies and undoes
-   * moves on the object it is given and restores it on the way out, so
-   * this is not strictly necessary — but it costs 25 bytes and removes
-   * the question entirely.
    */
   const chooseMove = useCallback(
-  (state: GameState, history: ZobristKey[]) => {
-    const result = search(state, {
-      timeLimitMs: AI_TIME_LIMIT_MS,
-      maxDepth: AI_MAX_DEPTH,
-      history,
-    });
-    //console.log(`depth ${result.depth} · ${result.nodes} nodes · ${result.timeMs}ms`);
-    return result.bestMove;
-  },
-  [],
-);
+    (state: GameState, history: ZobristKey[]) =>
+      search(state, {
+        timeLimitMs: AI_TIME_LIMIT_MS,
+        maxDepth: AI_MAX_DEPTH,
+        history,
+      }).bestMove,
+    [],
+  );
 
   const game = useGame({ humanSide, chooseMove });
 
   const [suggestion, setSuggestion] = useState<Move | null>(null);
 
-  // The suggestion describes one position only, so it dies with it.
+  // A suggestion describes one position only, so it dies with it.
   useEffect(() => setSuggestion(null), [game.state]);
 
   const suggest = useCallback(() => {
@@ -81,9 +70,6 @@ export default function MatchScreen() {
     setSuggestion(result.bestMove);
   }, [game]);
 
-  const suggestionOrigin =
-    suggestion && suggestion.kind !== 'place' ? suggestion.from : null;
-
   const switchSide = useCallback(
     (side: Side) => {
       if (side === humanSide) return;
@@ -95,15 +81,21 @@ export default function MatchScreen() {
 
   const placement = inPlacementPhase(game.state);
   const banner = resultText(game.status, game.state);
-  const insets = useSafeAreaInsets();
+  const suggestionOrigin =
+    suggestion && suggestion.kind !== 'place' ? suggestion.from : null;
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Bagh Chal</Text>
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <View style={[styles.container, { paddingBottom: 8 + insets.bottom / 2 }]}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Bagh Chaal</Text>
+          <View style={styles.phasePill}>
+            <Text style={styles.phaseText}>{'Phase: ' + (placement ? 'placement' : 'sliding')}</Text>
+          </View>
+        </View>
 
-        {/* Side selector. Switching restarts, since the AI would otherwise
-            be left mid-game on the side the player just took over. */}
+        {/* Switching side restarts, since the AI would otherwise be left
+            mid-game on the side the player just took over. */}
         <View style={styles.sideRow}>
           {([GOAT, TIGER] as Side[]).map((side) => {
             const active = side === humanSide;
@@ -114,7 +106,7 @@ export default function MatchScreen() {
                 style={[styles.sideButton, active && styles.sideButtonActive]}
               >
                 <Text style={[styles.sideLabel, active && styles.sideLabelActive]}>
-                  Play as {side === GOAT ? 'Goats' : 'Tigers'}
+                  {side === GOAT ? 'Goats' : 'Tigers'}
                 </Text>
               </Pressable>
             );
@@ -134,18 +126,12 @@ export default function MatchScreen() {
             </Text>
             <Text style={styles.statLabel}>Goats captured</Text>
           </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{placement ? 'Placement' : 'Sliding'}</Text>
-            <Text style={styles.statLabel}>Phase</Text>
-          </View>
         </View>
 
         <View style={styles.boardWrap}>
           <BagchaalBoard
             board={game.state.board}
             selected={suggestionOrigin ?? game.selected}
-            //During the placement phase, the legal targets are all empty points. It is not practical to pass them all to the board, 
-            // so the board is told to render no targets. The board will still accept taps on empty points and pass them to onPointPress.
             legalTargets={
               suggestion
                 ? [suggestion.to]
@@ -183,29 +169,18 @@ export default function MatchScreen() {
           <Text style={styles.warning}>
             This position has occurred {game.repetitionCount} times
           </Text>
-        ) : null}      
-        
-        <Link href="/puzzles" style={{ textAlign: 'center', color: '#2E7D62', fontSize: 15 }}>
-          Puzzles →
-        </Link>
+        ) : null}
 
-        <Link href="/tutorial" style={{ textAlign: 'center', color: '#2E7D62', fontSize: 15 }}>
-          Learn the rules →
-        </Link>
-
-        <View style={styles.suggestRow}>
+        <View style={styles.actions}>
           <Pressable
             onPress={suggest}
             disabled={!game.isHumanTurn}
             style={[styles.action, !game.isHumanTurn && styles.actionDisabled]}
           >
             <Text style={styles.actionLabel}>
-              {suggestion ? 'Suggestion shown' : 'Suggest a move'}
+              {suggestion ? 'Shown' : 'Suggest'}
             </Text>
           </Pressable>
-        </View>
-
-        <View style={[styles.actions, { marginBottom: 16 + insets.bottom }]}>
           <Pressable
             onPress={game.undo}
             disabled={game.thinking}
@@ -213,8 +188,8 @@ export default function MatchScreen() {
           >
             <Text style={styles.actionLabel}>Undo</Text>
           </Pressable>
-          <Pressable onPress={game.reset} style={styles.action}>
-            <Text style={styles.actionLabel}>New game</Text>
+          <Pressable onPress={game.reset} style={[styles.action, styles.actionPrimary]}>
+            <Text style={[styles.actionLabel, styles.actionLabelPrimary]}>New game</Text>
           </Pressable>
         </View>
       </View>
@@ -233,13 +208,24 @@ const PALETTE = {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: PALETTE.background },
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 14 },
-  title: { fontSize: 26, fontWeight: '700', color: PALETTE.ink },
+  container: { flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 10 },
+
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 24, fontWeight: '700', color: PALETTE.ink },
+  phasePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: PALETTE.surface,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+  },
+  phaseText: { fontSize: 12, fontWeight: '600', color: PALETTE.muted },
 
   sideRow: { flexDirection: 'row', gap: 8 },
   sideButton: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: PALETTE.border,
@@ -255,31 +241,34 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   stat: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 17, fontWeight: '600', color: PALETTE.ink },
+  statValue: { fontSize: 16, fontWeight: '600', color: PALETTE.ink },
   statLabel: { fontSize: 11, color: PALETTE.muted, marginTop: 2 },
 
-  boardWrap: { width: '100%', aspectRatio: 1 },
+  /* Flexes to fill whatever room is left. The SVG preserves its own
+     aspect ratio and centres itself, so no fixed square is needed. */
+  boardWrap: { flex: 1, minHeight: 200 },
 
-  turnRow: { minHeight: 28, justifyContent: 'center', alignItems: 'center' },
+  turnRow: { minHeight: 24, justifyContent: 'center', alignItems: 'center' },
   turnText: { fontSize: 14, color: PALETTE.muted },
   thinking: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   banner: { fontSize: 16, fontWeight: '700', color: PALETTE.ink, textAlign: 'center' },
   warning: { fontSize: 12, color: PALETTE.muted, textAlign: 'center' },
 
-  actions: { flexDirection: 'row', gap: 10, marginTop: 'auto', marginBottom: 16 },
+  actions: { flexDirection: 'row', gap: 8 },
   action: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: PALETTE.border,
     backgroundColor: PALETTE.surface,
     alignItems: 'center',
   },
+  actionPrimary: { backgroundColor: PALETTE.accent, borderColor: PALETTE.accent },
   actionDisabled: { opacity: 0.4 },
-  actionLabel: { fontSize: 15, fontWeight: '600', color: PALETTE.ink },
-  suggestRow: { flexDirection: 'row' },
+  actionLabel: { fontSize: 14, fontWeight: '600', color: PALETTE.ink },
+  actionLabelPrimary: { color: '#FFFFFF' },
 });

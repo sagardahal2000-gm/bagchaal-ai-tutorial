@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import BagchaalBoard from '../components/BagchaalBoard';
-import { TUTORIAL } from '../content/tutorial';
+import { LESSONS, TUTORIAL, lessonById, stepsInLesson } from '../content/tutorial';
 import { GOAT } from '../engine/board';
 import {
   GameState,
@@ -20,15 +20,21 @@ export default function TutorialScreen() {
 
   const [index, setIndex] = useState(0);
   const [hydrated, setHydrated] = useState(false);
-
-  const step = TUTORIAL[Math.min(index, TUTORIAL.length - 1)];
-  const finished = index >= TUTORIAL.length;
+  /** Lesson id whose completion card is currently showing. */
+  const [celebrating, setCelebrating] = useState<string | null>(null);
 
   const [state, setState] = useState<GameState>(() => cloneState(TUTORIAL[0].position));
   const [selected, setSelected] = useState<number | null>(null);
   const [lastMove, setLastMove] = useState<{ from?: number; to: number } | null>(null);
   const [done, setDone] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  const finished = index >= TUTORIAL.length;
+  const step = TUTORIAL[Math.min(index, TUTORIAL.length - 1)];
+  const lesson = lessonById(step.lessonId);
+
+  /** Steps completed over steps total. */
+  const percent = Math.round((Math.min(index, TUTORIAL.length) / TUTORIAL.length) * 100);
 
   /* ---------------------------------------------------------------- *
    * Persistence
@@ -65,13 +71,20 @@ export default function TutorialScreen() {
     if (next < TUTORIAL.length) setState(cloneState(TUTORIAL[next].position));
   }, []);
 
-  const restartStep = useCallback(() => {
-    setState(cloneState(step.position));
-    setSelected(null);
-    setLastMove(null);
-    setDone(false);
-    setMessage(null);
-  }, [step]);
+  /**
+   * Advance, and raise a completion card when the next step belongs to a
+   * different lesson. The index moves first, so progress is persisted
+   * even if the card is dismissed by closing the app.
+   */
+  const advance = useCallback(() => {
+    const nextIndex = index + 1;
+    const currentLesson = TUTORIAL[index].lessonId;
+    const nextLesson =
+      nextIndex < TUTORIAL.length ? TUTORIAL[nextIndex].lessonId : null;
+
+    goTo(nextIndex);
+    if (nextLesson !== currentLesson) setCelebrating(currentLesson);
+  }, [goTo, index]);
 
   /* ---------------------------------------------------------------- *
    * Board interaction
@@ -86,7 +99,7 @@ export default function TutorialScreen() {
   }, [moves]);
 
   const placing = inPlacementPhase(state) && state.turn === GOAT;
-  const interactive = !finished && !!step.requires && !done;
+  const interactive = !finished && !celebrating && !!step.requires && !done;
 
   const legalTargets = useMemo(() => {
     if (!interactive || placing || selected === null) return [];
@@ -108,7 +121,7 @@ export default function TutorialScreen() {
       if (step.requires.accepts(move, next)) {
         setState(next);
         setDone(true);
-        setMessage('That is it.');
+        setMessage('That is it ✔');
         return;
       }
 
@@ -152,11 +165,13 @@ export default function TutorialScreen() {
     [attempt, interactive, moves, origins, placing, selected],
   );
 
-  /* ---------------------------------------------------------------- */
+  /* ---------------------------------------------------------------- *
+   * Screens
+   * ---------------------------------------------------------------- */
 
   if (!hydrated) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
           <Text style={styles.title}>Learn Bagh Chal</Text>
           <Text style={styles.muted}>Loading…</Text>
@@ -165,47 +180,69 @@ export default function TutorialScreen() {
     );
   }
 
+  if (celebrating) {
+    const completed = lessonById(celebrating);
+    const number = LESSONS.findIndex((l) => l.id === celebrating) + 1;
+    return (
+      <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+        <View style={[styles.container, styles.centred]}>
+          <Text style={styles.tick}>✓</Text>
+          <Text style={styles.cardTitle}>Lesson {number} complete</Text>
+          <Text style={styles.cardLesson}>{completed?.title}</Text>
+          <Text style={styles.body}>{completed?.summary}</Text>
+
+          <ProgressBar percent={percent} />
+
+          <Pressable
+            onPress={() => setCelebrating(null)}
+            style={[styles.action, styles.actionPrimary, { marginTop: 60, marginBottom: 60, maxHeight: 50, }]}
+          >
+            <Text style={[styles.actionLabel, styles.actionLabelPrimary]}>
+              {index >= TUTORIAL.length ? 'Finish' : 'Next lesson'}
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (finished) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Lessons complete</Text>
+      <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+        <View style={[styles.container, styles.centred]}>
+          <Text style={styles.tick}>✔</Text>
+          <Text style={styles.cardTitle}>All lessons complete</Text>
           <Text style={styles.body}>
             You know the rules: placement, sliding, capture by jumping, blocking a
-            landing point, and trapping tigers. The puzzles are the place to practise
-            them under pressure.
+            landing point, trapping tigers, and both ways a game ends. The puzzles are
+            the place to practise them under pressure.
           </Text>
-          <View style={[styles.actions, { marginBottom: 16 + insets.bottom }]}>
-            <Pressable onPress={() => goTo(0)} style={styles.action}>
-              <Text style={styles.actionLabel}>Start again</Text>
-            </Pressable>
-          </View>
+          <ProgressBar percent={100} />
+          <Pressable
+            onPress={() => goTo(0)}
+            style={[styles.action, { marginTop: 40, marginBottom: 40, maxHeight: 50, }]}
+          >
+            <Text style={styles.actionLabel}>Start again</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
   const canAdvance = !step.requires || done;
+  const lessonNumber = LESSONS.findIndex((l) => l.id === step.lessonId) + 1;
+  const withinLesson =
+    stepsInLesson(step.lessonId).findIndex((s) => s.id === step.id) + 1;
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.stepCount}>
-          Step {index + 1} of {TUTORIAL.length}
+        <Text style={styles.eyebrow}>
+          Lesson {lessonNumber} · {lesson?.title} · step {withinLesson} of{' '}
+          {stepsInLesson(step.lessonId).length}
         </Text>
 
-        <View style={styles.dots}>
-          {TUTORIAL.map((lesson, i) => (
-            <View
-              key={lesson.id}
-              style={[
-                styles.dot,
-                i < index && styles.dotDone,
-                i === index && styles.dotCurrent,
-              ]}
-            />
-          ))}
-        </View>
+        <ProgressBar percent={percent} />
 
         <Text style={styles.title}>{step.title}</Text>
         <Text style={styles.body}>{step.body}</Text>
@@ -229,36 +266,39 @@ export default function TutorialScreen() {
           ) : null}
         </View>
 
-        <View style={[styles.actions, { marginBottom: 16 + insets.bottom }]}>
+        <View style={[styles.actions, { marginBottom: 12 + insets.bottom / 2 }]}>
           {index > 0 ? (
             <Pressable onPress={() => goTo(index - 1)} style={styles.action}>
               <Text style={styles.actionLabel}>Back</Text>
             </Pressable>
           ) : null}
 
-          {step.requires && !done ? (
-            <Pressable onPress={restartStep} style={styles.action}>
-              <Text style={styles.actionLabel}>Reset</Text>
-            </Pressable>
-          ) : null}
-
           <Pressable
-            onPress={() => goTo(index + 1)}
+            onPress={advance}
             disabled={!canAdvance}
             style={[
               styles.action,
               canAdvance ? styles.actionPrimary : styles.actionDisabled,
             ]}
           >
-            <Text
-              style={[styles.actionLabel, canAdvance && styles.actionLabelPrimary]}
-            >
+            <Text style={[styles.actionLabel, canAdvance && styles.actionLabelPrimary]}>
               {index === TUTORIAL.length - 1 ? 'Finish' : 'Continue'}
             </Text>
           </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function ProgressBar({ percent }: { percent: number }) {
+  return (
+    <View style={styles.progressRow}>
+      <View style={styles.barTrack}>
+        <View style={[styles.barFill, { width: `${percent}%` }]} />
+      </View>
+      <Text style={styles.percent}>{percent}%</Text>
+    </View>
   );
 }
 
@@ -275,22 +315,34 @@ const PALETTE = {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: PALETTE.background },
   container: { paddingHorizontal: 20, paddingTop: 8, gap: 10 },
+  centred: { flex: 1, justifyContent: 'center' },
 
-  stepCount: { fontSize: 12, color: PALETTE.muted, letterSpacing: 0.5 },
-  dots: { flexDirection: 'row', gap: 6 },
-  dot: {
+  eyebrow: { fontSize: 12, color: PALETTE.muted, letterSpacing: 0.3 },
+
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  barTrack: {
     flex: 1,
-    height: 3,
-    borderRadius: 2,
+    height: 8,
+    borderRadius: 999,
     backgroundColor: PALETTE.border,
+    overflow: 'hidden',
   },
-  dotDone: { backgroundColor: PALETTE.accent, opacity: 0.45 },
-  dotCurrent: { backgroundColor: PALETTE.accent },
+  barFill: { height: '100%', borderRadius: 999, backgroundColor: PALETTE.accent },
+  percent: { fontSize: 12, fontWeight: '600', color: PALETTE.accent, minWidth: 36 },
 
-  title: { fontSize: 24, fontWeight: '700', color: PALETTE.ink },
+  title: { fontSize: 23, fontWeight: '700', color: PALETTE.ink },
   body: { fontSize: 15, color: PALETTE.ink, lineHeight: 22 },
   prompt: { fontSize: 15, fontWeight: '600', color: PALETTE.accent, lineHeight: 21 },
   muted: { fontSize: 14, color: PALETTE.muted },
+
+  tick: { fontSize: 44, color: PALETTE.accent, textAlign: 'center' },
+  cardTitle: { fontSize: 24, fontWeight: '700', color: PALETTE.ink, textAlign: 'center' },
+  cardLesson: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: PALETTE.accent,
+    textAlign: 'center',
+  },
 
   boardWrap: { width: '100%', aspectRatio: 1 },
 
@@ -311,5 +363,5 @@ const styles = StyleSheet.create({
   actionPrimary: { backgroundColor: PALETTE.accent, borderColor: PALETTE.accent },
   actionDisabled: { opacity: 0.4 },
   actionLabel: { fontSize: 15, fontWeight: '600', color: PALETTE.ink },
-  actionLabelPrimary: { color: '#FFFFFF' },
+  actionLabelPrimary: { color: '#FFFFFF',  },
 });

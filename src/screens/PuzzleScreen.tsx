@@ -12,14 +12,6 @@ import {
 } from '../content/puzzles';
 import { GOAT } from '../engine/board';
 import {
-  GameState,
-  Move,
-  applyMove,
-  cloneState,
-  generateMoves,
-  inPlacementPhase,
-} from '../engine/moves';
-import {
   RatedPuzzle,
   RatedUser,
   expectedScore,
@@ -27,6 +19,14 @@ import {
   recordAttempt,
   selectPuzzle,
 } from '../engine/elo';
+import {
+  GameState,
+  Move,
+  applyMove,
+  cloneState,
+  generateMoves,
+  inPlacementPhase,
+} from '../engine/moves';
 import { solvePuzzle } from '../engine/puzzle';
 import { clearProgress, loadProgress, mergeRatings, saveProgress } from '../storage/progress';
 
@@ -160,8 +160,8 @@ export default function PuzzleScreen() {
       setFeedback(
         didSolve
           ? hintWasUsed
-            ? 'Solved, with a hint.'
-            : 'Solved.'
+            ? 'Solved, with a hint ✔'
+            : 'Solved ✔'
           : 'That move gives the solution away. Try again.',
       );
     },
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10, color: PALETTE.muted, marginTop: 2, textAlign: 'center' },
 
   prompt: { fontSize: 15, color: PALETTE.ink, lineHeight: 21 },
-  boardWrap: { width: '100%', aspectRatio: 1 },
+  boardWrap: { flex: 1, minHeight: 300 },
 
   messageRow: { minHeight: 26, justifyContent: 'center', alignItems: 'center' },
   message: { fontSize: 15, fontWeight: '600', color: PALETTE.accent, textAlign: 'center' },
