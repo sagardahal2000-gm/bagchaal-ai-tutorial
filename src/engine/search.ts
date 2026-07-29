@@ -52,16 +52,16 @@
 
 import { EMPTY, GOAT, POINTS, TIGER, TOTAL_GOATS } from './board';
 import {
-    DEFAULT_WEIGHTS, WIN_SCORE,
-    Weights,
-    evaluateForSideToMove,
+  DEFAULT_WEIGHTS, WIN_SCORE,
+  Weights,
+  evaluateForSideToMove,
 } from './evaluate';
 import {
-    GameState, Move, Side,
-    applyMove,
-    cloneState,
-    generateMoves,
-    undoMove,
+  GameState, Move, Side,
+  applyMove,
+  cloneState,
+  generateMoves,
+  undoMove,
 } from './moves';
 import { Outcome, outcome } from './rules';
 
@@ -273,6 +273,7 @@ interface SearchContext {
   deadline: number;
   useAlphaBeta: boolean;
   useTT: boolean;
+  rootBest: Move | null;
 }
 
 function negamax(
@@ -352,6 +353,7 @@ function negamax(
   } finally {
     ctx.pathCounts.set(key, (ctx.pathCounts.get(key) ?? 1) - 1);
   }
+  if (ply === 0) ctx.rootBest = bestMove;
 
   if (ctx.useTT) {
     const flag: TTFlag =
@@ -443,9 +445,10 @@ export function search(state: GameState, options: SearchOptions = {}): SearchRes
     deadline,
     useAlphaBeta: options.useAlphaBeta ?? true,
     useTT: options.useTT ?? true,
+    rootBest: null,
   };
   const rootHash = zobristHash(state);
-  const rootKey = hashKey(rootHash);
+  
 
   const start = Date.now();
   let last: SearchResult = { bestMove: null, score: 0, depth: 0, nodes: 0, timeMs: 0, pv: [] };
@@ -459,9 +462,9 @@ export function search(state: GameState, options: SearchOptions = {}): SearchRes
       throw err;
     }
 
-    const entry = ctx.useTT ? tt.get(rootKey) : undefined;
+    
     last = {
-      bestMove: entry?.bestMove ?? last.bestMove,
+      bestMove: ctx.rootBest ?? last.bestMove,
       score,
       depth,
       nodes: stats.nodes,

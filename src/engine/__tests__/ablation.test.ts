@@ -25,6 +25,10 @@ const DEPTHS = [3, 4, 5];
 
 const enabled = process.env.ABLATION === '1';
 
+/** Gated behind ABLATION=1: the benchmark takes minutes at depth 5 with
+ *  plain minimax, which is too slow for the default suite. Run with
+ *  `$env:ABLATION=1; npx jest ablation`. Results captured in results.md. */
+
 (enabled ? describe : describe.skip)('search ablation', () => {
   it('measures nodes and time for each configuration', () => {
     const rows: string[] = [];

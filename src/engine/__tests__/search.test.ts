@@ -91,6 +91,7 @@ describe('search finds an immediate capture', () => {
 
     expect(result.bestMove).toEqual({ kind: 'jump', from: 0, over: 1, to: 2 });
   });
+  
 });
 
 describe('iterative deepening', () => {
@@ -140,22 +141,28 @@ describe('repetition draw', () => {
   });
 });
 
-describe('ablation switches', () => {
-  it('plain minimax (no pruning, no TT) agrees with alpha-beta + TT on the minimax value', () => {
-    const state = initialState();
-    const plain = search(state, { maxDepth: 2, useAlphaBeta: false, useTT: false });
-    const pruned = search(state, { maxDepth: 2 });
+describe('search with features disabled', () => {
+    it('plain minimax (no pruning, no TT) agrees with alpha-beta + TT on the minimax value', () => {
+        const state = initialState();
+        const plain = search(state, { maxDepth: 2, useAlphaBeta: false, useTT: false });
+        const pruned = search(state, { maxDepth: 2 });
 
-    expect(plain.score).toBe(pruned.score);
-  });
+        expect(plain.score).toBe(pruned.score);
 
-  it('visits at least as many nodes without pruning as with it, at the same depth', () => {
-    const state = initialState();
-    const plain = search(state, { maxDepth: 3, useAlphaBeta: false, useTT: false });
-    const pruned = search(state, { maxDepth: 3 });
+    });
 
-    expect(plain.nodes).toBeGreaterThanOrEqual(pruned.nodes);
-  });
+    it('visits at least as many nodes without pruning as with it, at the same depth', () => {
+        const state = initialState();
+        const plain = search(state, { maxDepth: 3, useAlphaBeta: false, useTT: false });
+        const pruned = search(state, { maxDepth: 3 });
+
+        expect(plain.nodes).toBeGreaterThanOrEqual(pruned.nodes);
+    });
+
+    it('returns a move with the transposition table disabled', () => {
+        const result = search(initialState(), { maxDepth: 3, useTT: false });
+        expect(result.bestMove).not.toBeNull();
+    });
 });
 
 describe('MATE_THRESHOLD', () => {

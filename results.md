@@ -26,8 +26,23 @@ console.log
 
       at Object.<anonymous> (src/engine/__tests__/ablation.test.ts:57:13)
 
+    Gated behind ABLATION=1: the benchmark takes minutes at depth 5 with
+ *  plain minimax, which is too slow for the default suite. Run with
+ *  `$env:ABLATION=1; npx jest ablation`. Results captured in results.md.
+
 ## Observations
-- 
+- - Identical scores across all three configurations at every depth confirm
+  pruning and caching change work done, not the minimax value.
+- Alpha-beta's node reduction grows with depth (82% -> 96% -> 98%) as cuts
+  compound over larger subtrees.
+- The TT's benefit is negligible at depth 3 but halves the node count at
+  depth 5: it needs accumulated entries and transposable positions to pay off.
+- Minimax grows ~14-18x per ply; alpha-beta grows ~28x over two plies against
+  a theoretical best of ~16, indicating near-optimal move ordering.
+- Depth-4 score differs from depths 3 and 5 (odd-even effect: each side looks
+  better at depths where it moved last).
+- Negative root scores mean the heuristic favours Tigers in the opening,
+  agreeing with Lim & Nievergelt's finding on the placement phase.
 
 ## Move-quality benchmarks
 - 
