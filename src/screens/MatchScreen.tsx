@@ -7,14 +7,16 @@ import {
   View,
 } from 'react-native';
 
+import { Link } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import BagchaalBoard from '../components/BagchaalBoard';
 import { GOAT, GOATS_TO_LOSE, TIGER, TOTAL_GOATS } from '../engine/board';
 import { GameState, Side, inPlacementPhase } from '../engine/moves';
 import { Outcome } from '../engine/rules';
 import { ZobristKey, search } from '../engine/search';
 import { useGame } from '../hooks/useGame';
+
+
 
 /** Bounded so the synchronous search cannot stall the UI thread for long. */
 const AI_TIME_LIMIT_MS = 400;
@@ -157,7 +159,11 @@ export default function MatchScreen() {
           <Text style={styles.warning}>
             This position has occurred {game.repetitionCount} times
           </Text>
-        ) : null}
+        ) : null}      
+        
+        <Link href="/puzzles" style={{ textAlign: 'center', color: '#2E7D62', fontSize: 15 }}>
+          Puzzles →
+        </Link>
 
         <View style={[styles.actions, { marginBottom: 16 + insets.bottom }]}>
           <Pressable
